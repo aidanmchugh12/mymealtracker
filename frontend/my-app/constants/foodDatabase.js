@@ -1,0 +1,92 @@
+export const FOOD_DATABASE = [
+  {
+    id: 1,
+    name: "Chicken Breast (100g)",
+    calories: 165,
+    protein: 31,
+    carbs: 0,
+    fat: 3.6,
+  },
+  {
+    id: 2,
+    name: "Brown Rice (1 cup)",
+    calories: 216,
+    protein: 5,
+    carbs: 45,
+    fat: 1.8,
+  },
+  { id: 3, name: "Banana", calories: 89, protein: 1.1, carbs: 23, fat: 0.3 },
+  { id: 4, name: "Whole Egg", calories: 78, protein: 6, carbs: 0.6, fat: 5 },
+  {
+    id: 5,
+    name: "Greek Yogurt (170g)",
+    calories: 100,
+    protein: 17,
+    carbs: 6,
+    fat: 0.7,
+  },
+  {
+    id: 6,
+    name: "Almonds (28g)",
+    calories: 164,
+    protein: 6,
+    carbs: 6,
+    fat: 14,
+  },
+  {
+    id: 7,
+    name: "Salmon (100g)",
+    calories: 208,
+    protein: 20,
+    carbs: 0,
+    fat: 13,
+  },
+  {
+    id: 8,
+    name: "Oatmeal (1 cup)",
+    calories: 154,
+    protein: 6,
+    carbs: 27,
+    fat: 3,
+  },
+  {
+    id: 9,
+    name: "Avocado (half)",
+    calories: 120,
+    protein: 1.5,
+    carbs: 6,
+    fat: 11,
+  },
+  {
+    id: 10,
+    name: "Sweet Potato (medium)",
+    calories: 103,
+    protein: 2.3,
+    carbs: 24,
+    fat: 0.1,
+  },
+  {
+    id: 11,
+    name: "Broccoli (1 cup)",
+    calories: 55,
+    protein: 3.7,
+    carbs: 11,
+    fat: 0.6,
+  },
+  {
+    id: 12,
+    name: "Cheddar Cheese (28g)",
+    calories: 113,
+    protein: 7,
+    carbs: 0.4,
+    fat: 9,
+  },
+];
+
+export const DAILY_GOAL = 2000;
+
+export const today = new Date().toLocaleDateString("en-US", {
+  weekday: "long",
+  month: "short",
+  day: "numeric",
+});

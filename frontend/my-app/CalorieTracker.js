@@ -1,116 +1,21 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  StatusBar,
-} from "react-native";
+import { View, ScrollView, StyleSheet, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle } from "react-native-svg";
 
-const FOOD_DATABASE = [
-  { id: 1, name: "Chicken Breast (100g)", calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-  { id: 2, name: "Brown Rice (1 cup)", calories: 216, protein: 5, carbs: 45, fat: 1.8 },
-  { id: 3, name: "Banana", calories: 89, protein: 1.1, carbs: 23, fat: 0.3 },
-  { id: 4, name: "Whole Egg", calories: 78, protein: 6, carbs: 0.6, fat: 5 },
-  { id: 5, name: "Greek Yogurt (170g)", calories: 100, protein: 17, carbs: 6, fat: 0.7 },
-  { id: 6, name: "Almonds (28g)", calories: 164, protein: 6, carbs: 6, fat: 14 },
-  { id: 7, name: "Salmon (100g)", calories: 208, protein: 20, carbs: 0, fat: 13 },
-  { id: 8, name: "Oatmeal (1 cup)", calories: 154, protein: 6, carbs: 27, fat: 3 },
-  { id: 9, name: "Avocado (half)", calories: 120, protein: 1.5, carbs: 6, fat: 11 },
-  { id: 10, name: "Sweet Potato (medium)", calories: 103, protein: 2.3, carbs: 24, fat: 0.1 },
-  { id: 11, name: "Broccoli (1 cup)", calories: 55, protein: 3.7, carbs: 11, fat: 0.6 },
-  { id: 12, name: "Cheddar Cheese (28g)", calories: 113, protein: 7, carbs: 0.4, fat: 9 },
-];
+// Components
+import Header from "./components/Header";
+import SearchSection from "./components/SearchSection";
+import LogSection from "./components/LogSection";
 
-const DAILY_GOAL = 2000;
-
-const today = new Date().toLocaleDateString("en-US", {
-  weekday: "long", month: "short", day: "numeric",
-});
-
-const MacroPill = ({ label, value, unit, color }) => (
-  <View style={[styles.macroPill, { backgroundColor: color }]}>
-    <Text style={styles.macroPillValue}>{Math.round(value)}{unit}</Text>
-    <Text style={styles.macroPillLabel}>{label}</Text>
-  </View>
-);
-
-const CalorieRing = ({ progress, totalCalories }) => {
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDash = Math.min(progress / 100, 1) * circumference;
-  const isOver = totalCalories > DAILY_GOAL;
-
-  return (
-    <View style={styles.ringContainer}>
-      <Svg width={128} height={128} viewBox="0 0 128 128">
-        <Circle
-          cx="64" cy="64" r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.2)"
-          strokeWidth={10}
-        />
-        <Circle
-          cx="64" cy="64" r={radius}
-          fill="none"
-          stroke={isOver ? "#fbbf24" : "#fff"}
-          strokeWidth={10}
-          strokeLinecap="round"
-          strokeDasharray={`${strokeDash} ${circumference}`}
-          strokeDashoffset={circumference * 0.25}
-        />
-      </Svg>
-      <View style={styles.ringTextContainer}>
-        <Text style={styles.ringCalories}>{totalCalories}</Text>
-        <Text style={styles.ringLabel}>consumed</Text>
-      </View>
-    </View>
-  );
-};
-
-const FoodItem = ({ food, onAdd }) => (
-  <View style={styles.foodCard}>
-    <View style={styles.foodCardLeft}>
-      <Text style={styles.foodName}>{food.name}</Text>
-      <Text style={styles.foodMacros}>
-        P: {food.protein}g · C: {food.carbs}g · F: {food.fat}g
-      </Text>
-    </View>
-    <View style={styles.foodCardRight}>
-      <Text style={styles.foodCalories}>{food.calories} kcal</Text>
-      <TouchableOpacity style={styles.addButton} onPress={() => onAdd(food)} activeOpacity={0.75}>
-        <Text style={styles.addButtonText}>+</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-);
-
-const LoggedItem = ({ food, index, onRemove }) => (
-  <View style={styles.loggedItem}>
-    <View style={styles.loggedItemLeft}>
-      <View style={styles.loggedIndex}>
-        <Text style={styles.loggedIndexText}>{index + 1}</Text>
-      </View>
-      <Text style={styles.loggedName}>{food.name}</Text>
-    </View>
-    <View style={styles.loggedItemRight}>
-      <Text style={styles.loggedCalories}>{food.calories} kcal</Text>
-      <TouchableOpacity onPress={() => onRemove(index)} activeOpacity={0.6} style={styles.removeButton}>
-        <Text style={styles.removeButtonText}>✕</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-);
+// Constants
+import { FOOD_DATABASE, DAILY_GOAL, today } from "./constants/foodDatabase";
 
 export default function CalorieTracker() {
   const [loggedFoods, setLoggedFoods] = useState([]);
   const [search, setSearch] = useState("");
   const [showLog, setShowLog] = useState(false);
 
+  // Calculations
   const totalCalories = loggedFoods.reduce((sum, f) => sum + f.calories, 0);
   const totalProtein = loggedFoods.reduce((sum, f) => sum + f.protein, 0);
   const totalCarbs = loggedFoods.reduce((sum, f) => sum + f.carbs, 0);
@@ -120,56 +25,38 @@ export default function CalorieTracker() {
   const progress = (totalCalories / DAILY_GOAL) * 100;
   const isOver = totalCalories > DAILY_GOAL;
 
-  const filtered = FOOD_DATABASE.filter(f =>
-    f.name.toLowerCase().includes(search.toLowerCase())
+  const filtered = FOOD_DATABASE.filter((f) =>
+    f.name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const addFood = (food) => setLoggedFoods(prev => [...prev, food]);
-  const removeFood = (index) => setLoggedFoods(prev => prev.filter((_, i) => i !== index));
+  // Handlers
+  const addFood = (food) => setLoggedFoods((prev) => [...prev, food]);
+  const removeFood = (index) =>
+    setLoggedFoods((prev) => prev.filter((_, i) => i !== index));
+  const clearLog = () => setLoggedFoods([]);
+  const toggleLog = () => setShowLog(!showLog);
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#6366f1" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.dateText}>{today}</Text>
-            <Text style={styles.headerTitle}>Daily Calories</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.logToggle}
-            onPress={() => setShowLog(!showLog)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.logToggleText}>
-              {showLog ? "← Search" : `Log (${loggedFoods.length})`}
-            </Text>
-          </TouchableOpacity>
-        </View>
+      {/* Header Component */}
+      <Header
+        today={today}
+        progress={progress}
+        totalCalories={totalCalories}
+        remaining={remaining}
+        isOver={isOver}
+        totalProtein={totalProtein}
+        totalCarbs={totalCarbs}
+        totalFat={totalFat}
+        dailyGoal={DAILY_GOAL}
+        loggedFoodCount={loggedFoods.length}
+        showLog={showLog}
+        onToggleLog={toggleLog}
+      />
 
-        <View style={styles.headerStats}>
-          <CalorieRing progress={progress} totalCalories={totalCalories} />
-
-          <View style={styles.statsRight}>
-            <Text style={styles.goalText}>
-              Goal: <Text style={styles.goalBold}>{DAILY_GOAL} kcal</Text>
-            </Text>
-            <Text style={[styles.remainingText, isOver && styles.remainingOver]}>
-              {isOver ? `+${Math.abs(remaining)}` : remaining}
-              <Text style={styles.remainingUnit}> kcal {isOver ? "over" : "left"}</Text>
-            </Text>
-            <View style={styles.macroRow}>
-              <MacroPill label="Protein" value={totalProtein} unit="g" color="rgba(16,185,129,0.85)" />
-              <MacroPill label="Carbs" value={totalCarbs} unit="g" color="rgba(245,158,11,0.85)" />
-              <MacroPill label="Fat" value={totalFat} unit="g" color="rgba(239,68,68,0.85)" />
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Body */}
+      {/* Body Content */}
       <ScrollView
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
@@ -177,70 +64,19 @@ export default function CalorieTracker() {
         showsVerticalScrollIndicator={false}
       >
         {!showLog ? (
-          <>
-            {/* Search bar */}
-            <View style={styles.searchBar}>
-              <Text style={styles.searchIcon}>🔍</Text>
-              <TextInput
-                style={styles.searchInput}
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search foods..."
-                placeholderTextColor="#94a3b8"
-                returnKeyType="search"
-              />
-              {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch("")} activeOpacity={0.7}>
-                  <Text style={styles.clearSearch}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <Text style={styles.sectionLabel}>Food Database</Text>
-
-            {filtered.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No foods found.</Text>
-                <Text style={styles.emptySubText}>Try a different search term.</Text>
-              </View>
-            ) : (
-              filtered.map(food => (
-                <FoodItem key={food.id} food={food} onAdd={addFood} />
-              ))
-            )}
-          </>
+          <SearchSection
+            search={search}
+            onSearchChange={setSearch}
+            filtered={filtered}
+            onAddFood={addFood}
+          />
         ) : (
-          <>
-            <Text style={styles.sectionLabel}>
-              Today's Log · {loggedFoods.length} item{loggedFoods.length !== 1 ? "s" : ""}
-            </Text>
-
-            {loggedFoods.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No foods logged yet.</Text>
-                <Text style={styles.emptySubText}>Search and add foods to get started.</Text>
-              </View>
-            ) : (
-              <>
-                {loggedFoods.map((food, i) => (
-                  <LoggedItem key={i} food={food} index={i} onRemove={removeFood} />
-                ))}
-
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalCalories}>{totalCalories} kcal</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.clearButton}
-                  onPress={() => setLoggedFoods([])}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.clearButtonText}>Clear Log</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </>
+          <LogSection
+            loggedFoods={loggedFoods}
+            totalCalories={totalCalories}
+            onRemove={removeFood}
+            onClearLog={clearLog}
+          />
         )}
       </ScrollView>
     </SafeAreaView>
