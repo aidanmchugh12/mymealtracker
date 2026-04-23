@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Auth
+<<<<<<< HEAD
 import AuthPage from "./pages/AuthPage";
+=======
+import { AuthProvider, useAuth } from "./context/AuthContext";
+>>>>>>> f31ca5909be269835767e159a3f37709d0444e1c
 
 // Pages
 import HomePage from "./pages/HomePage";
@@ -11,13 +15,31 @@ import ExplorePage from "./pages/ExplorePage";
 import CalendarPage from "./pages/CalendarPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import ProfilePage from "./pages/ProfilePage";
+import LoginPage from "./pages/LoginPage";
 
 // Components
 import BottomNav from "./components/BottomNav";
 
+<<<<<<< HEAD
 export default function App() {
   const [user, setUser] = useState(null); // null = not signed in
+=======
+function AppContent() {
+>>>>>>> f31ca5909be269835767e159a3f37709d0444e1c
   const [activeTab, setActiveTab] = useState("home");
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   // Called by AuthPage on successful sign-in or sign-up
   const handleAuth = (userData) => {
@@ -52,11 +74,19 @@ export default function App() {
   };
 
   return (
+    <View style={{ flex: 1 }}>
+      {renderPage()}
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+    </View>
+  );
+}
+
+export default function App() {
+  return (
     <SafeAreaProvider>
-      <View style={{ flex: 1 }}>
-        {renderPage()}
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      </View>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
