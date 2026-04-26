@@ -3,11 +3,7 @@ import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Auth
-<<<<<<< HEAD
-import AuthPage from "./pages/AuthPage";
-=======
 import { AuthProvider, useAuth } from "./context/AuthContext";
->>>>>>> f31ca5909be269835767e159a3f37709d0444e1c
 
 // Pages
 import HomePage from "./pages/HomePage";
@@ -20,12 +16,7 @@ import LoginPage from "./pages/LoginPage";
 // Components
 import BottomNav from "./components/BottomNav";
 
-<<<<<<< HEAD
-export default function App() {
-  const [user, setUser] = useState(null); // null = not signed in
-=======
 function AppContent() {
->>>>>>> f31ca5909be269835767e159a3f37709d0444e1c
   const [activeTab, setActiveTab] = useState("home");
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -41,25 +32,10 @@ function AppContent() {
     return <LoginPage />;
   }
 
-  // Called by AuthPage on successful sign-in or sign-up
-  const handleAuth = (userData) => {
-    setUser(userData);
-    setActiveTab("home");
-  };
-
-  // Show auth screen if not signed in
-  if (!user) {
-    return (
-      <SafeAreaProvider>
-        <AuthPage onAuth={handleAuth} />
-      </SafeAreaProvider>
-    );
-  }
-
   const renderPage = () => {
     switch (activeTab) {
       case "home":
-        return <HomePage user={user} />;
+        return <HomePage />;
       case "explore":
         return <ExplorePage />;
       case "calendar":
@@ -67,9 +43,9 @@ function AppContent() {
       case "achievements":
         return <AchievementsPage />;
       case "profile":
-        return <ProfilePage user={user} onSignOut={() => setUser(null)} />;
+        return <ProfilePage />;
       default:
-        return <HomePage user={user} />;
+        return <HomePage />;
     }
   };
 
