@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +37,7 @@ public class MealController {
     public ResponseEntity<?> logMeal(@RequestBody Meal meal, Authentication authentication) {
         if (authentication == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
         meal.setUserId(getUserIdFromAuth(authentication));
+        if (meal.getTimestamp() == null) meal.setTimestamp(LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.CREATED).body(mealRepository.save(meal));
     }
 

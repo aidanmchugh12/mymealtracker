@@ -15,6 +15,7 @@ import { FOOD_DATABASE, DAILY_GOAL, today } from "../constants/foodDatabase";
 
 // Utilities
 import { apiGet, apiPost, apiDelete } from "../utils/api";
+import { mealDateKey, toDateKey } from "../utils/mealStats";
 
 export default function HomePage() {
   const { token } = useAuth();
@@ -22,6 +23,7 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [showLog, setShowLog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const todayKey = toDateKey(new Date());
 
   // Load meals from backend on component mount
   useEffect(() => {
@@ -43,10 +45,11 @@ export default function HomePage() {
   };
 
   // Calculations
-  const totalCalories = loggedFoods.reduce((sum, f) => sum + f.calories, 0);
-  const totalProtein = loggedFoods.reduce((sum, f) => sum + f.protein, 0);
-  const totalCarbs = loggedFoods.reduce((sum, f) => sum + f.carbs, 0);
-  const totalFat = loggedFoods.reduce((sum, f) => sum + f.fat, 0);
+  const todaysFoods = loggedFoods.filter((meal) => mealDateKey(meal) === todayKey);
+  const totalCalories = todaysFoods.reduce((sum, f) => sum + f.calories, 0);
+  const totalProtein = todaysFoods.reduce((sum, f) => sum + f.protein, 0);
+  const totalCarbs = todaysFoods.reduce((sum, f) => sum + f.carbs, 0);
+  const totalFat = todaysFoods.reduce((sum, f) => sum + f.fat, 0);
 
   const remaining = DAILY_GOAL - totalCalories;
   const progress = (totalCalories / DAILY_GOAL) * 100;
@@ -78,16 +81,16 @@ export default function HomePage() {
   };
 
   const removeFood = async (index) => {
-    const meal = loggedFoods[index];
+    const meal = todaysFoods[index];
     if (!meal || !meal.id) {
-      setLoggedFoods((prev) => prev.filter((_, i) => i !== index));
+      setLoggedFoods((prev) => prev.filter((existing) => existing !== meal));
       return;
     }
 
     setIsLoading(true);
     const result = await apiDelete(token, `/meals/${meal.id}`);
     if (result.success) {
-      setLoggedFoods((prev) => prev.filter((_, i) => i !== index));
+      setLoggedFoods((prev) => prev.filter((existing) => existing.id !== meal.id));
       Alert.alert('Success', 'Meal removed!');
     } else {
       Alert.alert('Error', `Failed to remove meal: ${result.error}`);
@@ -106,11 +109,13 @@ export default function HomePage() {
           onPress: async () => {
             setIsLoading(true);
             // Delete all meals in parallel
-            const deletePromises = loggedFoods.map((meal) =>
+            const deletePromises = todaysFoods.map((meal) =>
               apiDelete(token, `/meals/${meal.id}`)
             );
             await Promise.all(deletePromises);
-            setLoggedFoods([]);
+            setLoggedFoods((prev) =>
+              prev.filter((meal) => mealDateKey(meal) !== todayKey)
+            );
             setIsLoading(false);
             Alert.alert('Success', 'All meals cleared!');
           },
@@ -147,7 +152,7 @@ export default function HomePage() {
         totalCarbs={totalCarbs}
         totalFat={totalFat}
         dailyGoal={DAILY_GOAL}
-        loggedFoodCount={loggedFoods.length}
+        loggedFoodCount={todaysFoods.length}
         showLog={showLog}
         onToggleLog={toggleLog}
       />
@@ -168,7 +173,7 @@ export default function HomePage() {
           />
         ) : (
           <LogSection
-            loggedFoods={loggedFoods}
+            loggedFoods={todaysFoods}
             totalCalories={totalCalories}
             onRemove={removeFood}
             onClearLog={clearLog}

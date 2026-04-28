@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { mealDisplayName } from "../utils/mealStats";
 
 const LoggedItem = ({ food, index, onRemove }) => (
   <View style={styles.loggedItem}>
@@ -6,7 +7,7 @@ const LoggedItem = ({ food, index, onRemove }) => (
       <View style={styles.loggedIndex}>
         <Text style={styles.loggedIndexText}>{index + 1}</Text>
       </View>
-      <Text style={styles.loggedName}>{food.name}</Text>
+      <Text style={styles.loggedName}>{mealDisplayName(food)}</Text>
     </View>
     <View style={styles.loggedItemRight}>
       <Text style={styles.loggedCalories}>{food.calories} kcal</Text>

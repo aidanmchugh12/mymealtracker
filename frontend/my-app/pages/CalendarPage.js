@@ -1,43 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// ─── Mock data ──────────────────────────────────────────────────────────────
-const DAILY_GOAL = 2000;
-
-function makeMockData() {
-  const data = {};
-  const now = new Date();
-  for (let i = 0; i < 60; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    const key = toKey(d);
-    const rand = Math.random();
-    if (rand > 0.15) {
-      // ~85% of days have data
-      const calories = Math.floor(1200 + Math.random() * 1400);
-      data[key] = {
-        calories,
-        protein: Math.floor(60 + Math.random() * 100),
-        carbs: Math.floor(100 + Math.random() * 200),
-        fat: Math.floor(30 + Math.random() * 80),
-      };
-    }
-  }
-  return data;
-}
-
-function toKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-const MOCK_DATA = makeMockData();
+import { useAuth } from "../context/AuthContext";
+import { DAILY_GOAL } from "../constants/foodDatabase";
+import { aggregateMealsByDate, toDateKey } from "../utils/mealStats";
+import { apiGet } from "../utils/api";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -102,9 +76,9 @@ const CalorieDot = ({ calories, size = 8 }) => (
   />
 );
 
-const WeekBar = ({ date, isToday, isSelected, onPress }) => {
-  const key = toKey(date);
-  const entry = MOCK_DATA[key];
+const WeekBar = ({ date, dataByDate, isToday, isSelected, onPress }) => {
+  const key = toDateKey(date);
+  const entry = dataByDate[key];
   const calories = entry?.calories;
   const fill = calorieFill(calories);
   const color = statusColor(calories);
@@ -139,11 +113,11 @@ const WeekBar = ({ date, isToday, isSelected, onPress }) => {
   );
 };
 
-const MonthCell = ({ date, isToday, isSelected, onPress }) => {
+const MonthCell = ({ date, dataByDate, isToday, isSelected, onPress }) => {
   if (!date) return <View style={styles.monthCellEmpty} />;
 
-  const key = toKey(date);
-  const entry = MOCK_DATA[key];
+  const key = toDateKey(date);
+  const entry = dataByDate[key];
   const calories = entry?.calories;
   const color = statusColor(calories);
 
@@ -174,9 +148,9 @@ const MonthCell = ({ date, isToday, isSelected, onPress }) => {
   );
 };
 
-const DayDetail = ({ date }) => {
-  const key = toKey(date);
-  const entry = MOCK_DATA[key];
+const DayDetail = ({ date, dataByDate }) => {
+  const key = toDateKey(date);
+  const entry = dataByDate[key];
   const today = new Date();
   const isToday =
     date.getDate() === today.getDate() &&
@@ -244,7 +218,7 @@ const DayDetail = ({ date }) => {
                 <View
                   style={[styles.detailMacroDot, { backgroundColor: m.color }]}
                 />
-                <Text style={styles.detailMacroVal}>{m.value}g</Text>
+                <Text style={styles.detailMacroVal}>{Math.round(m.value)}g</Text>
                 <Text style={styles.detailMacroLabel}>{m.label}</Text>
               </View>
             ))}
@@ -280,14 +254,33 @@ const Legend = () => (
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CalendarPage() {
+  const { token } = useAuth();
   const today = new Date();
   const [view, setView] = useState("month"); // "week" | "month"
   const [selectedDate, setSelectedDate] = useState(today);
+  const [dataByDate, setDataByDate] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
   const [weekAnchor, setWeekAnchor] = useState(today);
   const [monthYear, setMonthYear] = useState({
     year: today.getFullYear(),
     month: today.getMonth(),
   });
+
+  useEffect(() => {
+    const loadMeals = async () => {
+      if (!token) return;
+      setIsLoading(true);
+      const result = await apiGet(token, "/meals");
+      if (result.success) {
+        setDataByDate(aggregateMealsByDate(result.data || []));
+      } else {
+        console.error("Failed to load calendar meals:", result.error);
+      }
+      setIsLoading(false);
+    };
+
+    loadMeals();
+  }, [token]);
 
   const weekDates = getWeekDates(weekAnchor);
   const monthCells = getMonthDates(monthYear.year, monthYear.month);
@@ -389,6 +382,7 @@ export default function CalendarPage() {
                 <WeekBar
                   key={i}
                   date={d}
+                  dataByDate={dataByDate}
                   isToday={isToday(d)}
                   isSelected={isSelected(d)}
                   onPress={setSelectedDate}
@@ -451,6 +445,7 @@ export default function CalendarPage() {
                 <MonthCell
                   key={i}
                   date={date}
+                  dataByDate={dataByDate}
                   isToday={isToday(date)}
                   isSelected={isSelected(date)}
                   onPress={setSelectedDate}
@@ -464,23 +459,30 @@ export default function CalendarPage() {
         <Legend />
 
         {/* Day detail */}
-        <DayDetail date={selectedDate} />
+        {isLoading ? (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color="#6366f1" />
+            <Text style={styles.loadingText}>Loading nutrition history...</Text>
+          </View>
+        ) : (
+          <DayDetail date={selectedDate} dataByDate={dataByDate} />
+        )}
 
         {/* Stats summary */}
-        <StatsSummary />
+        <StatsSummary dataByDate={dataByDate} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 // ─── 30-day stats summary ────────────────────────────────────────────────────
-function StatsSummary() {
+function StatsSummary({ dataByDate }) {
   const today = new Date();
   const entries = [];
   for (let i = 0; i < 30; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const entry = MOCK_DATA[toKey(d)];
+    const entry = dataByDate[toDateKey(d)];
     if (entry) entries.push(entry);
   }
 
@@ -496,7 +498,7 @@ function StatsSummary() {
     for (let i = 0; i < 30; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      if (MOCK_DATA[toKey(d)]) s++;
+      if (dataByDate[toDateKey(d)]) s++;
       else break;
     }
     return s;
@@ -763,6 +765,23 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  loadingCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    alignItems: "center",
+    gap: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  loadingText: {
+    color: "#64748b",
+    fontSize: 13,
+    fontWeight: "600",
   },
   detailHeader: {
     flexDirection: "row",
