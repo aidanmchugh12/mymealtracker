@@ -1,8 +1,33 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { authConfig } from "../auth/authConfig";
 
 const AuthContext = createContext();
+const TOKEN_KEY = "auth_token";
+
+const tokenStorage = {
+  getItem: async () => {
+    if (Platform.OS === "web") {
+      return window.localStorage.getItem(TOKEN_KEY);
+    }
+    return SecureStore.getItemAsync(TOKEN_KEY);
+  },
+  setItem: async (value) => {
+    if (Platform.OS === "web") {
+      window.localStorage.setItem(TOKEN_KEY, value);
+      return;
+    }
+    return SecureStore.setItemAsync(TOKEN_KEY, value);
+  },
+  deleteItem: async () => {
+    if (Platform.OS === "web") {
+      window.localStorage.removeItem(TOKEN_KEY);
+      return;
+    }
+    return SecureStore.deleteItemAsync(TOKEN_KEY);
+  },
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -20,7 +45,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const restoreToken = async () => {
       try {
-        const savedToken = await SecureStore.getItemAsync("auth_token");
+        const savedToken = await tokenStorage.getItem();
         if (savedToken) {
           setToken(savedToken);
           setIsAuthenticated(true);
@@ -66,7 +91,7 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
       if (!response.ok) throw new Error(data || "Login failed");
 
-      await SecureStore.setItemAsync("auth_token", data.token);
+      await tokenStorage.setItem(data.token);
       setToken(data.token);
       setUser(data.user);
       setIsAuthenticated(true);
@@ -92,7 +117,7 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
       if (!response.ok) throw new Error(data || "Signup failed");
 
-      await SecureStore.setItemAsync("auth_token", data.token);
+      await tokenStorage.setItem(data.token);
       setToken(data.token);
       setUser(data.user);
       setIsAuthenticated(true);
@@ -106,7 +131,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync("auth_token");
+    await tokenStorage.deleteItem();
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);

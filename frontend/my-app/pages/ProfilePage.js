@@ -9,6 +9,7 @@ import {
   StatusBar,
   Alert,
   Switch,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
@@ -128,8 +129,9 @@ function MacroSplitBar({ protein, carbs, fat }) {
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export default function ProfilePage({ user, onSignOut }) {
-  const displayName = user?.name || "User";
+export default function ProfilePage() {
+  const { user, logout } = useAuth();
+  const displayName = user?.username || user?.name || "User";
   const displayEmail = user?.email || "";
   const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -214,6 +216,20 @@ export default function ProfilePage({ user, onSignOut }) {
         style: "destructive",
         onPress: () => setFriends((prev) => prev.filter((f) => f.username !== username)),
       },
+    ]);
+  };
+
+  const handleSignOut = () => {
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to sign out?")) {
+        logout();
+      }
+      return;
+    }
+
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: logout },
     ]);
   };
 
@@ -385,12 +401,7 @@ export default function ProfilePage({ user, onSignOut }) {
         {/* ── Sign out ── */}
         <TouchableOpacity
           style={styles.signOutBtn}
-          onPress={() => {
-            Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Sign Out", style: "destructive", onPress: onSignOut },
-            ]);
-          }}
+          onPress={handleSignOut}
           activeOpacity={0.8}
         >
           <Text style={styles.signOutTxt}>Sign Out</Text>
