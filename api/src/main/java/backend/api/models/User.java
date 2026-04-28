@@ -4,6 +4,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document(collection = "users")
 public class User {
@@ -18,6 +20,9 @@ public class User {
     private String passwordHash;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<String> friendIds = new ArrayList<>();
+    private List<String> incomingFriendRequestIds = new ArrayList<>();
+    private List<String> outgoingFriendRequestIds = new ArrayList<>();
 
     public User() {}
 
@@ -41,4 +46,10 @@ public class User {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public List<String> getFriendIds() { return friendIds; }
+    public void setFriendIds(List<String> friendIds) { this.friendIds = friendIds; }
+    public List<String> getIncomingFriendRequestIds() { return incomingFriendRequestIds; }
+    public void setIncomingFriendRequestIds(List<String> incomingFriendRequestIds) { this.incomingFriendRequestIds = incomingFriendRequestIds; }
+    public List<String> getOutgoingFriendRequestIds() { return outgoingFriendRequestIds; }
+    public void setOutgoingFriendRequestIds(List<String> outgoingFriendRequestIds) { this.outgoingFriendRequestIds = outgoingFriendRequestIds; }
 }

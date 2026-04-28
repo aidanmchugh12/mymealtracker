@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,14 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
-
-// ─── Mock friends data ────────────────────────────────────────────────────────
-const MOCK_USER_LOOKUP = {
-  fitgirl99: { name: "Sofia R.", emoji: "🧘" },
-  ironmike: { name: "Mike T.", emoji: "💪" },
-  healthjoe: { name: "Joe K.", emoji: "🥦" },
-  runneramy: { name: "Amy L.", emoji: "🏃" },
-};
+import { apiDelete, apiGet, apiPost } from "../utils/api";
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 const Section = ({ title, children }) => (
@@ -96,15 +89,45 @@ const ToggleRow = ({ label, icon, value, onToggle }) => (
 const FriendChip = ({ friend, onRemove }) => (
   <View style={styles.friendChip}>
     <View style={styles.friendAvatar}>
-      <Text style={styles.friendAvatarEmoji}>{friend.emoji}</Text>
+      <Text style={styles.friendAvatarEmoji}>
+        {(friend.username || "?").slice(0, 2).toUpperCase()}
+      </Text>
     </View>
     <View style={styles.friendInfo}>
-      <Text style={styles.friendName}>{friend.name}</Text>
+      <Text style={styles.friendName}>{friend.username}</Text>
       <Text style={styles.friendUsername}>@{friend.username}</Text>
     </View>
     <TouchableOpacity onPress={onRemove} style={styles.friendRemoveBtn} activeOpacity={0.7}>
       <Text style={styles.friendRemoveTxt}>✕</Text>
     </TouchableOpacity>
+  </View>
+);
+
+const RequestChip = ({ request, type, onAccept, onDecline, onCancel }) => (
+  <View style={styles.friendChip}>
+    <View style={styles.friendAvatar}>
+      <Text style={styles.friendAvatarEmoji}>
+        {(request.username || "?").slice(0, 2).toUpperCase()}
+      </Text>
+    </View>
+    <View style={styles.friendInfo}>
+      <Text style={styles.friendName}>{request.username}</Text>
+      <Text style={styles.friendUsername}>@{request.username}</Text>
+    </View>
+    {type === "incoming" ? (
+      <View style={styles.requestActions}>
+        <TouchableOpacity onPress={onAccept} style={styles.acceptBtn} activeOpacity={0.8}>
+          <Text style={styles.acceptBtnText}>Accept</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onDecline} style={styles.friendRemoveBtn} activeOpacity={0.8}>
+          <Text style={styles.friendRemoveTxt}>✕</Text>
+        </TouchableOpacity>
+      </View>
+    ) : (
+      <TouchableOpacity onPress={onCancel} style={styles.cancelRequestBtn} activeOpacity={0.8}>
+        <Text style={styles.cancelRequestText}>Cancel</Text>
+      </TouchableOpacity>
+    )}
   </View>
 );
 
@@ -130,7 +153,7 @@ function MacroSplitBar({ protein, carbs, fat }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const displayName = user?.username || user?.name || "User";
   const displayEmail = user?.email || "";
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -160,13 +183,117 @@ export default function ProfilePage() {
   });
 
   // ── Friends ──
-  const [friends, setFriends] = useState([
-    { username: "fitgirl99", name: "Sofia R.", emoji: "🧘" },
-    { username: "ironmike", name: "Mike T.", emoji: "💪" },
-  ]);
+  const [friends, setFriends] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
   const [friendInput, setFriendInput] = useState("");
   const [friendError, setFriendError] = useState("");
   const [friendSuccess, setFriendSuccess] = useState("");
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+  const [isSavingFriend, setIsSavingFriend] = useState(false);
+
+  useEffect(() => {
+    const loadSocialData = async () => {
+      if (!token) return;
+      setIsLoadingFriends(true);
+      setFriendError("");
+      const [friendsResult, incomingResult, outgoingResult] = await Promise.all([
+        apiGet(token, "/users/friends"),
+        apiGet(token, "/users/friend-requests/incoming"),
+        apiGet(token, "/users/friend-requests/outgoing"),
+      ]);
+
+      if (friendsResult.success) {
+        setFriends(friendsResult.data);
+      } else {
+        setFriendError(friendsResult.error || "Could not load friends.");
+      }
+      if (incomingResult.success) {
+        setIncomingRequests(incomingResult.data);
+      }
+      if (outgoingResult.success) {
+        setOutgoingRequests(outgoingResult.data);
+      }
+      if (!incomingResult.success || !outgoingResult.success) {
+        setFriendError("Could not load all friend requests.");
+      }
+
+      setIsLoadingFriends(false);
+    };
+
+    loadSocialData();
+  }, [token]);
+
+  const refreshSocialData = async () => {
+    if (!token) return;
+    const [friendsResult, incomingResult, outgoingResult] = await Promise.all([
+      apiGet(token, "/users/friends"),
+      apiGet(token, "/users/friend-requests/incoming"),
+      apiGet(token, "/users/friend-requests/outgoing"),
+    ]);
+
+    if (friendsResult.success) {
+      setFriends(friendsResult.data);
+    }
+    if (incomingResult.success) {
+      setIncomingRequests(incomingResult.data);
+    }
+    if (outgoingResult.success) {
+      setOutgoingRequests(outgoingResult.data);
+    }
+  };
+
+  const runWithWebConfirm = (message, action) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(message)) {
+        action();
+      }
+      return;
+    }
+
+    Alert.alert("Confirm", message, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Confirm", style: "destructive", onPress: action },
+    ]);
+  };
+
+  const requestMatchesUsername = (request, username) =>
+    request.username?.toLowerCase() === username;
+
+  const acceptFriendRequest = async (request) => {
+    setFriendError("");
+    setFriendSuccess("");
+    const result = await apiPost(token, `/users/friend-requests/${request.id}/accept`);
+    if (result.success) {
+      setFriendSuccess(`${request.username} is now your friend.`);
+      await refreshSocialData();
+      setTimeout(() => setFriendSuccess(""), 2500);
+      return;
+    }
+    setFriendError(result.error || "Could not accept friend request.");
+  };
+
+  const declineFriendRequest = async (request) => {
+    setFriendError("");
+    setFriendSuccess("");
+    const result = await apiDelete(token, `/users/friend-requests/${request.id}`);
+    if (result.success) {
+      setIncomingRequests((prev) => prev.filter((r) => r.id !== request.id));
+      return;
+    }
+    setFriendError(result.error || "Could not decline friend request.");
+  };
+
+  const cancelFriendRequest = async (request) => {
+    setFriendError("");
+    setFriendSuccess("");
+    const result = await apiDelete(token, `/users/friend-requests/outgoing/${request.id}`);
+    if (result.success) {
+      setOutgoingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    } else {
+      setFriendError(result.error || "Could not cancel friend request.");
+    }
+  };
 
   const setGoal = (key, val) => setGoals((g) => ({ ...g, [key]: val }));
   const setStat = (key, val) => setStats((s) => ({ ...s, [key]: val }));
@@ -187,36 +314,57 @@ export default function ProfilePage() {
 
   const bmiInfo = bmi ? bmiLabel(parseFloat(bmi)) : null;
 
-  const handleAddFriend = () => {
+  const handleAddFriend = async () => {
     setFriendError("");
     setFriendSuccess("");
     const username = friendInput.trim().toLowerCase();
     if (!username) return;
 
-    if (friends.find((f) => f.username === username)) {
+    if (username === user?.username?.toLowerCase()) {
+      setFriendError("You cannot add yourself as a friend.");
+      return;
+    }
+    if (friends.find((f) => requestMatchesUsername(f, username))) {
       setFriendError("Already in your friends list.");
       return;
     }
-    const found = MOCK_USER_LOOKUP[username];
-    if (!found) {
-      setFriendError(`No user found for "@${username}".`);
+    if (outgoingRequests.find((r) => requestMatchesUsername(r, username))) {
+      setFriendError("Friend request already sent.");
       return;
     }
-    setFriends((prev) => [...prev, { username, ...found }]);
-    setFriendSuccess(`${found.name} added!`);
+    const incomingRequest = incomingRequests.find((r) => requestMatchesUsername(r, username));
+    if (incomingRequest) {
+      await acceptFriendRequest(incomingRequest);
+      setFriendInput("");
+      return;
+    }
+
+    setIsSavingFriend(true);
+    const result = await apiPost(token, "/users/friend-requests", { username });
+    setIsSavingFriend(false);
+
+    if (!result.success) {
+      setFriendError(result.error || `No user found for "@${username}".`);
+      return;
+    }
+
+    setOutgoingRequests((prev) => [...prev, result.data.user]);
+    setFriendSuccess(`Friend request sent to ${result.data.user.username}.`);
     setFriendInput("");
     setTimeout(() => setFriendSuccess(""), 2500);
   };
 
-  const removeFriend = (username) => {
-    Alert.alert("Remove Friend", `Remove @${username}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => setFriends((prev) => prev.filter((f) => f.username !== username)),
-      },
-    ]);
+  const removeFriendById = async (friendId) => {
+    const result = await apiDelete(token, `/users/friends/${friendId}`);
+    if (result.success) {
+      setFriends((prev) => prev.filter((f) => f.id !== friendId));
+      return;
+    }
+    setFriendError(result.error || "Could not remove friend.");
+  };
+
+  const removeFriend = (friend) => {
+    runWithWebConfirm(`Remove @${friend.username}?`, () => removeFriendById(friend.id));
   };
 
   const handleSignOut = () => {
@@ -369,18 +517,59 @@ export default function ProfilePage() {
               returnKeyType="done"
             />
             <TouchableOpacity style={styles.friendAddBtn} onPress={handleAddFriend} activeOpacity={0.8}>
-              <Text style={styles.friendAddBtnTxt}>Add</Text>
+              <Text style={styles.friendAddBtnTxt}>
+                {isSavingFriend ? "Sending" : "Send"}
+              </Text>
             </TouchableOpacity>
           </View>
 
           {friendError ? <Text style={styles.friendError}>⚠ {friendError}</Text> : null}
           {friendSuccess ? <Text style={styles.friendSuccess}>✓ {friendSuccess}</Text> : null}
 
-          <Text style={styles.friendHint}>
-            Try: fitgirl99, ironmike, healthjoe, runneramy
-          </Text>
+          <Text style={styles.friendHint}>Enter another user's username to send a request.</Text>
 
-          {friends.length === 0 ? (
+          {incomingRequests.length > 0 ? (
+            <View style={styles.requestSection}>
+              <Text style={styles.requestSectionTitle}>Requests received</Text>
+              {incomingRequests.map((request) => (
+                <RequestChip
+                  key={request.id}
+                  request={request}
+                  type="incoming"
+                  onAccept={() => acceptFriendRequest(request)}
+                  onDecline={() =>
+                    runWithWebConfirm(`Decline @${request.username}'s request?`, () =>
+                      declineFriendRequest(request),
+                    )
+                  }
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {outgoingRequests.length > 0 ? (
+            <View style={styles.requestSection}>
+              <Text style={styles.requestSectionTitle}>Requests sent</Text>
+              {outgoingRequests.map((request) => (
+                <RequestChip
+                  key={request.id}
+                  request={request}
+                  type="outgoing"
+                  onCancel={() =>
+                    runWithWebConfirm(`Cancel request to @${request.username}?`, () =>
+                      cancelFriendRequest(request),
+                    )
+                  }
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {isLoadingFriends ? (
+            <View style={styles.friendEmpty}>
+              <Text style={styles.friendEmptyText}>Loading friends...</Text>
+            </View>
+          ) : friends.length === 0 ? (
             <View style={styles.friendEmpty}>
               <Text style={styles.friendEmptyIcon}>🤝</Text>
               <Text style={styles.friendEmptyText}>No friends added yet</Text>
@@ -389,9 +578,9 @@ export default function ProfilePage() {
             <View style={styles.friendList}>
               {friends.map((f) => (
                 <FriendChip
-                  key={f.username}
+                  key={f.id}
                   friend={f}
-                  onRemove={() => removeFriend(f.username)}
+                  onRemove={() => removeFriend(f)}
                 />
               ))}
             </View>
@@ -594,6 +783,30 @@ const styles = StyleSheet.create({
   friendError: { color: "#ef4444", fontSize: 12, fontWeight: "600", marginBottom: 6, marginLeft: 4 },
   friendSuccess: { color: "#10b981", fontSize: 12, fontWeight: "700", marginBottom: 6, marginLeft: 4 },
   friendHint: { fontSize: 11, color: "#94a3b8", fontStyle: "italic", marginBottom: 10, marginLeft: 2 },
+  requestSection: { gap: 8, paddingBottom: 12 },
+  requestSectionTitle: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    marginLeft: 2,
+    textTransform: "uppercase",
+  },
+  requestActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  acceptBtn: {
+    backgroundColor: "#dcfce7",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  acceptBtnText: { color: "#16a34a", fontSize: 12, fontWeight: "800" },
+  cancelRequestBtn: {
+    backgroundColor: "#f1f5f9",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  cancelRequestText: { color: "#64748b", fontSize: 12, fontWeight: "800" },
   friendList: { gap: 8, paddingBottom: 8 },
   friendChip: {
     flexDirection: "row",
