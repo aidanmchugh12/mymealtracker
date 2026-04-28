@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { View, ScrollView, StyleSheet, StatusBar, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -11,7 +11,7 @@ import SearchSection from "../components/SearchSection";
 import LogSection from "../components/LogSection";
 
 // Constants
-import { FOOD_DATABASE, DAILY_GOAL } from "../constants/foodDatabase";
+import { FOOD_DATABASE, DAILY_GOAL, today } from "../constants/foodDatabase";
 
 // Utilities
 import { apiGet, apiPost, apiDelete } from "../utils/api";
@@ -23,15 +23,15 @@ export default function HomePage() {
   const [showLog, setShowLog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Derive today's date dynamically so it always reflects the current day
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
+  // Load meals from backend on component mount
+  useEffect(() => {
+    if (token) {
+      loadMealsFromBackend();
+    }
+  }, [token]);
 
   // Load meals from backend
-  const loadMealsFromBackend = useCallback(async () => {
+  const loadMealsFromBackend = async () => {
     setIsLoading(true);
     const result = await apiGet(token, '/meals');
     if (result.success) {
@@ -40,14 +40,7 @@ export default function HomePage() {
       console.error('Failed to load meals:', result.error);
     }
     setIsLoading(false);
-  }, [token]);
-
-  // Load meals from backend on component mount
-  useEffect(() => {
-    if (token) {
-      loadMealsFromBackend();
-    }
-  }, [token, loadMealsFromBackend]);
+  };
 
   // Calculations
   const totalCalories = loggedFoods.reduce((sum, f) => sum + f.calories, 0);
@@ -84,18 +77,17 @@ export default function HomePage() {
     setIsLoading(false);
   };
 
-  // Use meal ID instead of index to avoid stale reference bugs
-  const removeFood = async (id) => {
-    const meal = loggedFoods.find((f) => f.id === id);
+  const removeFood = async (index) => {
+    const meal = loggedFoods[index];
     if (!meal || !meal.id) {
-      setLoggedFoods((prev) => prev.filter((f) => f.id !== id));
+      setLoggedFoods((prev) => prev.filter((_, i) => i !== index));
       return;
     }
 
     setIsLoading(true);
     const result = await apiDelete(token, `/meals/${meal.id}`);
     if (result.success) {
-      setLoggedFoods((prev) => prev.filter((f) => f.id !== id));
+      setLoggedFoods((prev) => prev.filter((_, i) => i !== index));
       Alert.alert('Success', 'Meal removed!');
     } else {
       Alert.alert('Error', `Failed to remove meal: ${result.error}`);
@@ -108,28 +100,19 @@ export default function HomePage() {
       'Clear Log',
       'Are you sure you want to remove all meals?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', onPress: () => {} },
         {
           text: 'Clear',
           onPress: async () => {
             setIsLoading(true);
-            // Guard against meals with missing IDs
-            const deletePromises = loggedFoods
-              .filter((meal) => meal.id)
-              .map((meal) => apiDelete(token, `/meals/${meal.id}`));
-
-            const results = await Promise.all(deletePromises);
-            const anyFailed = results.some((r) => !r.success);
-
-            if (anyFailed) {
-              // Re-sync with backend if any deletes failed
-              await loadMealsFromBackend();
-              Alert.alert('Error', 'Some meals could not be deleted. Please try again.');
-            } else {
-              setLoggedFoods([]);
-              Alert.alert('Success', 'All meals cleared!');
-            }
+            // Delete all meals in parallel
+            const deletePromises = loggedFoods.map((meal) =>
+              apiDelete(token, `/meals/${meal.id}`)
+            );
+            await Promise.all(deletePromises);
+            setLoggedFoods([]);
             setIsLoading(false);
+            Alert.alert('Success', 'All meals cleared!');
           },
           style: 'destructive',
         },
